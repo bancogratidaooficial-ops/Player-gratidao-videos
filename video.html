@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>V86 - Vídeos</title><link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}body{background:#000;color:#fff;text-align:center;padding:10px;padding-bottom:100px}
+.top{display:flex;gap:8px;margin-bottom:12px}.top a{flex:1;text-decoration:none;padding:12px;border-radius:10px;font-weight:bold;background:#222;color:#FFD700;border:2px solid #FFD700}.top a.active{background:#FFD700;color:#000}
+.busca{display:flex;gap:8px;margin-bottom:12px}.busca input{flex:1;padding:14px;border-radius:12px;border:2px solid #FFD700;background:#111;color:#fff}.busca button{background:#FFD700;border:none;padding:0 22px;border-radius:12px;font-weight:bold}
+.card{border:2px solid #FFD700;border-radius:20px;padding:12px;background:#111}video,iframe{width:100%;height:330px;background:#000;border-radius:12px;margin:10px 0;border:none}
+#nome{color:#FFD700;font-weight:bold}#status{color:#25D366;font-size:14px;margin:6px}
+.vel{display:flex;gap:6px;justify-content:center;margin:10px 0}.vel button{background:#222;border:2px solid #FFD700;color:#FFD700;padding:8px 12px;border-radius:8px}.vel button.ativo{background:#FFD700;color:#000}
+.btns{display:flex;justify-content:center;gap:10px;margin:10px 0}.btns button{background:#FFD700;border:none;width:65px;height:65px;border-radius:50%;font-size:22px}
+.lista{text-align:left;background:#1a1a1a;border-radius:10px;padding:5px;max-height:400px;overflow:auto;margin:10px 0}
+.item{display:flex;gap:8px;align-items:center;padding:12px;border-bottom:1px solid #333;cursor:pointer}.item.active{background:#222;border-radius:8px}.item img{width:90px;height:50px;border-radius:6px;object-fit:cover}.item div{flex:1;overflow:hidden}.item div b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}.item div small{color:#aaa}.del{background:#ff2a2a;color:#fff;border:none;width:35px;height:35px;border-radius:50%;flex-shrink:0}
+.green{background:#00d26a;color:#fff;border:none;padding:16px;border-radius:12px;width:100%;font-weight:bold;margin-top:10px}
+.share{display:flex;gap:8px;margin-top:10px}.share button{flex:1;padding:14px;border-radius:12px;font-weight:bold;border:none}
+</style>
+</head>
+<body>
+<div class="top"><a href="index.html">🎵 MÚSICAS</a><a href="video.html" class="active">🎬 VÍDEOS</a></div>
+<div class="busca"><input type="text" id="q" placeholder="🔍 Buscar fora - ex: Leonardo, Filme, Desenho"><button onclick="buscar()">Buscar</button></div>
+<div class="card">
+<video id="v" controls playsinline style="display:none"></video><iframe id="yt" allowfullscreen style="display:none" allow="autoplay; encrypted-media"></iframe>
+<div id="nome">Pronto para buscar fora</div><div id="status">Digite algo e clique Buscar (busca na internet)</div><div id="cont" style="color:#aaa">0 vídeos</div>
+<div class="vel"><button onclick="setVel(0.5)" id="v05">0.5x</button><button onclick="setVel(1)" id="v1" class="ativo">1x</button><button onclick="setVel(1.5)" id="v15">1.5x</button><button onclick="setVel(2)" id="v2">2x</button></div>
+<div class="btns"><button onclick="ant()">⏮</button><button style="width:80px;height:80px" onclick="pp()">▶️</button><button onclick="prox()">⏭</button></div>
+<div class="lista" id="lista"></div>
+</div>
+<button class="green" onclick="document.getElementById('f').click()">➕ Adicionar Vídeos do Celular</button><input type="file" id="f" multiple accept="video/*" style="display:none">
+<button class="green" style="background:#111;border:2px solid #FFD700;color:#FFD700" onclick="addLink()">🔗 Adicionar por Link</button>
+<div class="share"><button style="background:#25D366;color:#fff" onclick="compartilhar()">📲 Compartilhar</button><button style="background:#FFD700;color:#000" onclick="convidar()">👥 Convidar</button></div>
+<script>
+let vids=[], idx=0; const video=document.getElementById('v'), yt=document.getElementById('yt'), nome=document.getElementById('nome'), lista=document.getElementById('lista'), cont=document.getElementById('cont'), statusEl=document.getElementById('status'); let db;
+const req=indexedDB.open('V86VideoDB',1); req.onupgradeneeded=e=>e.target.result.createObjectStore('videos',{keyPath:'id',autoIncrement:true});
+req.onsuccess=async e=>{ db=e.target.result; await carregarGlobal(); carregarLocal(); };
+async function carregarGlobal(){ try{ const r=await fetch('./videos/lista.json?v='+Date.now()); if(r.ok){ const j=await r.json(); j.forEach(m=>{vids.push({id:'g_'+m.arquivo, nome:m.titulo, url:'./videos/'+m.arquivo, tipo:'mp4', thumb:'', global:true});}); } }catch(e){} }
+function carregarLocal(){ db.transaction('videos','readonly').objectStore('videos').getAll().onsuccess=e=>{ e.target.result.forEach(r=>{vids.push({id:r.id, nome:r.nome, url:r.url||URL.createObjectURL(r.blob), tipo:r.tipo||'mp4', thumb:r.thumb||'', global:false, blobId:r.id});}); montar(); };}
+function montar(){ cont.innerText=vids.length+' vídeos salvos'; if(!vids.length){ render(); return;} render(); if(!video.src &&!yt.src) carregar(0);}
+function render(){ lista.innerHTML=''; vids.forEach((x,i)=>{ const d=document.createElement('div'); d.className='item'+(i==idx?' active':''); const img=document.createElement('img'); img.src=x.thumb||'https://i.ytimg.com/vi/'+(x.videoId||'dQw4w9WgXcQ')+'/mqdefault.jpg'; img.onerror=()=>img.src='https://via.placeholder.com/90x50/111/FFD700?text=VIDEO';
+  const txt=document.createElement('div'); txt.innerHTML='<b>'+x.nome+'</b><small>'+(x.tipo=='yt'?'YouTube - Toque para tocar':'Celular')+'</small>'; txt.onclick=()=>carregar(i);
+  const b=document.createElement('button'); b.className='del'; b.innerText='🗑️'; b.onclick=(ev)=>{ ev.stopPropagation(); if(x.global){alert('Global só apaga no GitHub'); return;} const tx=db.transaction('videos','readwrite'); tx.objectStore('videos').delete(x.blobId); tx.oncomplete=()=>location.reload(); };
+  d.appendChild(img); d.appendChild(txt); d.appendChild(b); lista.appendChild(d);
+});}
+function carregar(i){ idx=i; const m=vids[i]; nome.innerText=m.nome; statusEl.innerText=m.tipo=='yt'?'▶️ Tocando do YouTube (fora do app)':'📱 Tocando do celular'; if(m.tipo=='yt'){ video.style.display='none'; try{video.pause();}catch(e){}; yt.style.display='block'; yt.src=m.url; } else { yt.style.display='none'; yt.src=''; video.style.display='block'; video.src=m.url; video.play().catch(()=>{}); } render();}
+function pp(){ if(vids[idx]?.tipo=='yt'){ statusEl.innerText='Use o play dentro do vídeo'; } else { video.paused?video.play():video.pause(); }} function prox(){ if(vids.length){carregar((idx+1)%vids.length);}} function ant(){ if(vids.length){carregar((idx-1+vids.length)%vids.length);}}
+function setVel(x){ if(vids[idx]?.tipo=='yt'){alert('Velocidade só celular'); return;} video.playbackRate=x; document.querySelectorAll('.vel button').forEach(b=>b.classList.remove('ativo')); document.getElementById('v'+String(x).replace('.','')).classList.add('ativo'); }
+function getYtId(u){ const m=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([^&?/]+)/); return m?m[1]:null; }
+function addLink(){ const link=prompt('Cole link YouTube:'); if(!link) return; const id=getYtId(link); if(!id){alert('Link inválido - copie link do YouTube'); return;} const titulo=prompt('Nome:')||'Vídeo YouTube'; const url='https://www.youtube.com/embed/'+id; const thumb='https://i.ytimg.com/vi/'+id+'/mqdefault.jpg'; const tx=db.transaction('videos','readwrite'); tx.objectStore('videos').add({nome:titulo, url:url, tipo:'yt', thumb:thumb, videoId:id, blob:new Blob([])}); tx.oncomplete=()=>location.reload(); }
+
+// ===== BUSCA EXTERNA IGUAL PLUTO.TV =====
+async function buscar(){
+ const q=document.getElementById('q').value.trim(); if(!q){alert('Digite o que buscar'); return;}
+ statusEl.innerText='🌎 Buscando fora do app: '+q+'...'; nome.innerText='Buscando na internet...';
+ try{
+   // Piped API (busca externa, funciona no GitHub Pages)
+   const apis=[
+     'https://pipedapi.kavin.rocks/search?q='+encodeURIComponent(q)+'&filter=videos',
+     'https://pipedapi.moomoo.me/search?q='+encodeURIComponent(q)+'&filter=videos',
+     'https://api.piped.private.coffee/search?q='+encodeURIComponent(q)+'&filter=videos'
+   ];
+   let data=null;
+   for(const api of apis){
+     try{
+       const r=await fetch(api);
+       if(r.ok){ const j=await r.json(); if(j.items && j.items.length){ data=j.items; break; } if(j.length){ data=j; break; } }
+     }catch(e){ console.log('falhou',api); }
+   }
+   if(!data ||!data.length) throw new Error('sem dados');
+
+   // Limpa busca anterior? Não, adiciona
+   statusEl.innerText='✅ Encontrou '+data.length+' vídeos fora do app!';
+   // Adiciona 12 primeiros
+   for(let i=Math.min(data.length,12)-1;i>=0;i--){
+     const it=data[i];
+     const vid=it.url?it.url.split('v=')[1]?.split('&')[0]||it.url.split('/').pop():it.videoId||it.id;
+     if(!vid) continue;
+     const titulo=it.title||it.name||'Vídeo';
+     const thumb=it.thumbnail||'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg';
+     const url='https://www.youtube.com/embed/'+vid;
+     // não duplica
+     if(vids.some(v=>v.videoId==vid)) continue;
+     vids.unshift({id:Date.now()+i, nome:titulo, url:url, tipo:'yt', thumb:thumb, videoId:vid, global:false, blobId:Date.now()+i});
+     const tx=db.transaction('videos','readwrite');
+     tx.objectStore('videos').add({nome:titulo, url:url, tipo:'yt', thumb:thumb, videoId:vid, blob:new Blob([])});
+   }
+   montar(); carregar(0);
+ }catch(e){
+   statusEl.innerText='❌ Erro na busca externa, abrindo YouTube...';
+   // Fallback garantido: abre busca do YouTube em nova aba e também adiciona
+   const vidUrl='https://www.youtube.com/results?search_query='+encodeURIComponent(q);
+   window.open(vidUrl,'_blank');
+   statusEl.innerText='Abri o YouTube fora. Copie o link do vídeo e use "Adicionar por Link"';
+ }
+}
+function compartilhar(){ const l=location.href; if(navigator.share){navigator.share({title:'V86 PLAY',url:l});} else {navigator.clipboard.writeText(l); alert('Copiado');}}
+function convidar(){ window.open('https://wa.me/?text='+encodeURIComponent('🎬 V86 PLAY 👉 '+location.href),'_blank'); }
+document.getElementById('f').addEventListener('change', async e=>{ for(const f of e.target.files){ await new Promise(r=>{ const tx=db.transaction('videos','readwrite'); tx.objectStore('videos').add({nome:f.name,blob:f, tipo:'mp4', url:'', thumb:''}); tx.oncomplete=r; }); } location.reload(); });
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
