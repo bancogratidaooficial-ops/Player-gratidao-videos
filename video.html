@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V86 PLAY - Vídeos</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}body{background:#000;color:#fff;text-align:center;padding:10px}
+.top{display:flex;gap:8px;margin-bottom:12px}.top a{flex:1;text-decoration:none;padding:12px;border-radius:10px;font-weight:bold;background:#222;color:#FFD700;border:2px solid #FFD700}.top a.active{background:#FFD700;color:#000}
+.player{border:2px solid #FFD700;border-radius:20px;padding:12px;background:#111}
+video{width:100%;max-height:320px;background:#000;border-radius:10px;margin:10px 0}
+#nome{color:#FFD700;font-weight:bold;margin:8px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vel{display:flex;gap:6px;justify-content:center;margin:10px 0}.vel button{background:#222;border:2px solid #FFD700;color:#FFD700;padding:8px 12px;border-radius:8px}.vel button.ativo{background:#FFD700;color:#000}
+.btns{display:flex;justify-content:center;gap:10px;margin:10px 0}.btns button{background:#FFD700;border:none;width:65px;height:65px;border-radius:50%;font-size:22px}
+.lista{text-align:left;background:#1a1a1a;border-radius:10px;padding:5px;max-height:300px;overflow:auto;margin:10px 0}
+.item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #333}.item.active{color:#FFD700;background:#222;border-radius:8px}.item span{flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.del{background:#ff2a2a;color:#fff;border:none;width:35px;height:35px;border-radius:50%}
+.green{background:#00d26a;color:#fff;border:none;padding:15px;border-radius:12px;width:100%;font-weight:bold;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="top"><a href="index.html">🎵 MÚSICAS</a><a href="video.html" class="active">🎬 VÍDEOS</a></div>
+<div class="player">
+<video id="v" controls playsinline></video>
+<div id="nome">Nenhum vídeo</div>
+<div id="contador" style="color:#aaa">0 vídeos</div>
+<div class="vel"><button onclick="setVel(0.5)" id="v05">0.5x</button><button onclick="setVel(1)" id="v1" class="ativo">1x</button><button onclick="setVel(1.5)" id="v15">1.5x</button><button onclick="setVel(2)" id="v2">2x</button></div>
+<div class="btns"><button onclick="ant()">⏮</button><button style="width:80px;height:80px" onclick="pp()">▶️</button><button onclick="prox()">⏭</button></div>
+<div class="lista" id="lista"></div>
+</div>
+<button class="green" onclick="document.getElementById('f').click()">➕ Adicionar Vídeos</button><input type="file" id="f" multiple accept="video/*" style="display:none">
+<p style="margin:20px"><a href="privacidade.html" style="color:#FFD700">Privacidade</a> | <a href="termos.html" style="color:#FFD700">Termos</a> | <a href="contato.html" style="color:#FFD700">Contato</a></p>
+<script>
+let vids=[], idx=0; const video=document.getElementById('v'), nome=document.getElementById('nome'), lista=document.getElementById('lista'), cont=document.getElementById('contador'); let db;
+const req=indexedDB.open('V86VideoDB',1); req.onupgradeneeded=e=>e.target.result.createObjectStore('videos',{keyPath:'id',autoIncrement:true});
+req.onsuccess=e=>{db=e.target.result; load();};
+function load(){db.transaction('videos','readonly').objectStore('videos').getAll().onsuccess=e=>{vids=e.target.result.map(r=>({id:r.id,nome:r.nome,url:URL.createObjectURL(r.blob)})); montar();};}
+function montar(){cont.innerText=vids.length+' vídeos'; if(vids.length==0){nome.innerText='Nenhum vídeo - adicione'; lista.innerHTML=''; return;} render(); if(!video.src) carregar(0);}
+function render(){lista.innerHTML=''; vids.forEach((x,i)=>{const d=document.createElement('div'); d.className='item'+(i==idx?' active':''); const s=document.createElement('span'); s.innerText=(i+1)+'. '+x.nome; s.onclick=()=>{carregar(i); video.play();}; const b=document.createElement('button'); b.className='del'; b.innerText='🗑️'; b.onclick=()=>{if(confirm('Apagar?')){const tx=db.transaction('videos','readwrite'); tx.objectStore('videos').delete(x.id); tx.oncomplete=()=>load();}}; d.appendChild(s); d.appendChild(b); lista.appendChild(d);});}
+function carregar(i){idx=i; video.src=vids[i].url; nome.innerText=vids[i].nome; render();}
+function pp(){video.paused?video.play():video.pause();} function prox(){if(vids.length){carregar((idx+1)%vids.length); video.play();}} function ant(){if(vids.length){carregar((idx-1+vids.length)%vids.length); video.play();}}
+function setVel(x){video.playbackRate=x; document.querySelectorAll('.vel button').forEach(b=>b.classList.remove('ativo')); document.getElementById('v'+String(x).replace('.','')).classList.add('ativo');}
+document.getElementById('f').addEventListener('change', async e=>{for(const file of e.target.files){await new Promise(r=>{const tx=db.transaction('videos','readwrite'); tx.objectStore('videos').add({nome:file.name,blob:file}); tx.oncomplete=r;});} load();}); video.onended=()=>prox();
+</script>
+</body>
+</html>
